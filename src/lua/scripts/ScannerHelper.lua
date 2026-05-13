@@ -14,6 +14,7 @@ require 'scanner.WhatsMinerHttpsLuci'
 require 'scanner.AvalonHttpLuci'
 require 'scanner.AvalonDeviceCgi'
 require 'scanner.AnthillOS'
+require 'scanner.EpicUmc'
 
 ScannerHelper = oo.class({}, HelperBase)
 

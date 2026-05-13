@@ -23,11 +23,8 @@ function HttpAutoDetect:detect(response, stat)
     local miner = context:miner()
 
     if (stat ~= "success") then
-        miner:setOpt('httpDetect', 'unknown')
-        miner:setTypeStr('unknown')
-        miner:setFullTypeStr('')
-        -- Try cgminer api even if HTTP fails
-        self.parent:setExecutor(self.context, GenericCgminerApi(self.parent, self.context))
+        -- Port 80 unreachable - try port 4028 for ePIC before giving up
+        self:setStep('tryEpicUmcPort', 'try epic...')
         return
     end
 
@@ -92,12 +89,48 @@ function HttpAutoDetect:detect(response, stat)
         return
     end
 
-    utils.debugInfo('HttpAutoDetect:detect', 'unknown device')
+    utils.debugInfo('HttpAutoDetect:detect', 'unknown device on port 80, trying port 4028')
+    self:setStep('tryEpicUmcPort', 'try epic...')
+end
+
+function HttpAutoDetect:tryEpicUmcPort()
+    local context = self.context
+    local miner = context:miner()
+    local ip = miner:ip()
+
+    local request = {
+        method = 'GET',
+        host = ip,
+        path = '/summary'
+    }
+
+    context:setRequestContent(http.makeRequest(request))
+    context:setRequestHost(ip)
+    context:setRequestPort("4028")
+    self:setStep('doDetectEpicUmcPort', 'epic detect...')
+end
+
+function HttpAutoDetect:doDetectEpicUmcPort(response, stat)
+    local context = self.context
+    local miner = context:miner()
+
+    if (stat == "success") then
+        local ok, parsed = pcall(http.parseResponse, response)
+        if ok and parsed.statCode == "200" then
+            local ok2, obj = pcall(utils.jsonDecode, parsed.body)
+            if ok2 and type(obj) == "table" and obj.Hostname ~= nil and obj.Session ~= nil then
+                miner:setOpt('httpDetect', 'EpicUmc')
+                self.parent:setExecutor(self.context, EpicUmc(self.parent, self.context))
+                return
+            end
+        end
+    end
+
+    utils.debugInfo('HttpAutoDetect:doDetectEpicUmcPort', 'unknown device')
 
     miner:setOpt('httpDetect', 'unknown')
     miner:setTypeStr('unknown')
     miner:setFullTypeStr('')
-    -- Try cgminer api even if HTTP fails
     self.parent:setExecutor(self.context, GenericCgminerApi(self.parent, self.context))
 end
 

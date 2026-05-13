@@ -12,6 +12,7 @@ require 'configurator.WhatsMinerHttpsLuci'
 require 'configurator.AvalonHttpLuci'
 require 'configurator.AvalonDeviceCgi'
 require 'configurator.AnthillOS'
+require 'configurator.EpicUmc'
 
 ConfiguratorHelper = oo.class({}, HelperBase)
 
