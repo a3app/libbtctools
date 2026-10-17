@@ -1,7 +1,10 @@
-cmake_minimum_required (VERSION 3.4)
+cmake_minimum_required (VERSION 3.16)
 
 project (libbtctools)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 ###################################### Options ######################################
 message("") # empty line
@@ -42,15 +45,10 @@ message("-- Lua Engine Type: ${BTCTOOLS__LUA_TYPE} (-DBTCTOOLS__LUA_TYPE=JIT|NOR
 # set build options (msvc not required)
 if(NOT WIN32)
   IF(CMAKE_BUILD_TYPE MATCHES Debug)
-    set(CMAKE_CXX_FLAGS "-g -O0")
+    set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
   ELSEIF(CMAKE_BUILD_TYPE MATCHES Release)
-    set(CMAKE_CXX_FLAGS "-O2")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
   ENDIF()
-endif()
-
-# enable C++11 (msvc not required)
-if(NOT WIN32)
-  set(CMAKE_CXX_COMPILER_ARG1 "-std=c++0x")
 endif()
 
 ###################### Windows Only Options ######################
@@ -132,13 +130,10 @@ endif()
 message("") # empty line
 message("------------------------------- Libs -------------------------------")
 
-find_package(Boost 1.59 COMPONENTS regex system context)
-if(NOT Boost_FOUND)
-  message(FATAL_ERROR "Boost 1.59 or later not found!")
-else()
-  message("-- Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
-  message("-- Boost_LIBRARIES: ${Boost_LIBRARIES}")
-endif()
+# Boost.System is header-only from 1.69, so it is not a required component.
+find_package(Boost 1.59 REQUIRED COMPONENTS regex context)
+message("-- Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
+message("-- Boost_LIBRARIES: ${Boost_LIBRARIES}")
 
 find_package(OpenSSL)
 if(NOT OPENSSL_FOUND)
@@ -175,6 +170,16 @@ else()
   message("-- CRYPTOPP_LIBRARIES: ${CRYPTOPP_LIBRARIES}")
 endif()
 
+# Debian/Ubuntu ship headers as crypto++/; the sources include <cryptopp/...>.
+if(CRYPTOPP_INCLUDE_DIR AND EXISTS "${CRYPTOPP_INCLUDE_DIR}/crypto++" AND NOT EXISTS "${CRYPTOPP_INCLUDE_DIR}/cryptopp")
+  file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/cryptopp-compat")
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+    "${CRYPTOPP_INCLUDE_DIR}/crypto++"
+    "${CMAKE_BINARY_DIR}/cryptopp-compat/cryptopp")
+  include_directories("${CMAKE_BINARY_DIR}/cryptopp-compat")
+  message("-- Crypto++ header compat: ${CMAKE_BINARY_DIR}/cryptopp-compat/cryptopp -> ${CRYPTOPP_INCLUDE_DIR}/crypto++")
+endif()
+
 if (WIN32)
   set(PTHREAD_INCLUDE_DIR "")
   set(PTHREAD_LIBRARIES ws2_32)
@@ -196,6 +201,9 @@ set(THIRD_LIBRARIES ${Boost_LIBRARIES} ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_L
                       ${LUA_LIBRARIES} ${CRYPTOPP_LIBRARIES} ${PTHREAD_LIBRARIES})
 if(WIN32)
   set(THIRD_LIBRARIES ${THIRD_LIBRARIES} crypt32)
+endif()
+if(UNIX AND NOT APPLE)
+  list(APPEND THIRD_LIBRARIES dl)
 endif()
 
 

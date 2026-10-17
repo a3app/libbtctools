@@ -152,3 +152,24 @@ Replace `G:/work/vcpkg/scripts/buildsystems/vcpkg.cmake` to your `vcpkg.cmake` p
 Replace `G:\work\lib[32|64]\btctools` to the install path what you want.
 
 Select **Release** instead of the default **Debug** in the build type drop-down box, then build the **INSTALL** project to install.
+
+# GitHub Actions
+
+A tag `vX.Y.Z` builds the demo and toolkit applications (scan / config / reboot / upgrade, plus `ipGeneratorDemo`, `make-rsa-keys`, …) with the Lua scripts they need, then publishes a GitHub Release:
+
+| Archive | Runner |
+|--|--|
+| `libbtctools-linux-amd64.tar.gz` | Ubuntu 24.04 |
+| `libbtctools-linux-arm64.tar.gz` | Ubuntu 24.04 ARM |
+| `libbtctools-darwin-arm64.tar.gz` | macOS Apple Silicon |
+
+The same files are also uploaded as `libbtctools-<version>-…`. Unpack and run from the archive root so `./lua/scripts` resolves:
+
+```bash
+tar -xzf libbtctools-linux-amd64.tar.gz
+cd libbtctools
+./ipGeneratorDemo
+./scanMinerDemo
+```
+
+Push and pull request on `master` run the same builds without publishing. Manual: Actions → Dist.

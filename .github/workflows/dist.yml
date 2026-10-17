@@ -1,0 +1,152 @@
+name: Dist
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: dist-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            artifact: linux-amd64
+          - runner: ubuntu-24.04-arm
+            artifact: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libboost-all-dev libssl-dev libluajit-5.1-dev libcrypto++-dev
+      - name: Build applications
+        run: |
+          set -eu
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/stage" \
+            -DBTCTOOLS__LIB_TYPE=STATIC
+          cmake --build build -j "$(nproc)"
+          cmake --install build
+      - name: Pack
+        run: |
+          set -eu
+          test -d stage/bin/btctools
+          mkdir -p dist
+          cp -a stage/bin/btctools "dist/libbtctools"
+          for b in scanMinerDemo configMinerDemo rebootMinerDemo upgradeMinerDemo \
+                   tcpClientHttpDemo tcpClientScanDemo ipGeneratorDemo cryptoRSADemo \
+                   make-rsa-keys rsatools; do
+            strip --strip-unneeded "dist/libbtctools/$b"
+          done
+          (cd dist/libbtctools && ./ipGeneratorDemo >/tmp/ipgen.out)
+          test -s /tmp/ipgen.out
+          tar -C dist -czf "dist/libbtctools-${{ matrix.artifact }}.tar.gz" libbtctools
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: dist/libbtctools-${{ matrix.artifact }}.tar.gz
+
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: brew install cmake boost openssl@3 lua@5.1 cryptopp pkg-config
+      - name: Build applications
+        run: |
+          set -eu
+          LUA_PREFIX="$(brew --prefix lua@5.1)"
+          LUA_INC="$(find "${LUA_PREFIX}/include" -type d \( -name lua5.1 -o -name lua-5.1 \) | head -1)"
+          LUA_LIB="$(find "${LUA_PREFIX}/lib" \( -name 'liblua*.dylib' -o -name 'liblua*.a' \) | head -1)"
+          test -n "${LUA_INC}" && test -n "${LUA_LIB}"
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/stage" \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix);$(brew --prefix openssl@3);$(brew --prefix boost);$(brew --prefix cryptopp);${LUA_PREFIX}" \
+            -DBTCTOOLS__LIB_TYPE=STATIC \
+            -DBTCTOOLS__LUA_TYPE=NORMAL \
+            -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+            -DBoost_ROOT="$(brew --prefix boost)" \
+            -DCRYPTOPP_ROOT_DIR="$(brew --prefix cryptopp)" \
+            -DLUA_INCLUDE_DIR="${LUA_INC}" \
+            -DLUA_LIBRARY="${LUA_LIB}"
+          cmake --build build -j "$(sysctl -n hw.ncpu)"
+          cmake --install build
+      - name: Pack
+        run: |
+          set -eu
+          test -d stage/bin/btctools
+          mkdir -p dist
+          cp -a stage/bin/btctools "dist/libbtctools"
+          for b in scanMinerDemo configMinerDemo rebootMinerDemo upgradeMinerDemo \
+                   tcpClientHttpDemo tcpClientScanDemo ipGeneratorDemo cryptoRSADemo \
+                   make-rsa-keys rsatools; do
+            strip "dist/libbtctools/$b"
+          done
+          (cd dist/libbtctools && ./ipGeneratorDemo >/tmp/ipgen.out)
+          test -s /tmp/ipgen.out
+          tar -C dist -czf dist/libbtctools-darwin-arm64.tar.gz libbtctools
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: darwin-arm64
+          if-no-files-found: error
+          retention-days: 14
+          path: dist/libbtctools-darwin-arm64.tar.gz
+
+  release:
+    needs: [linux, macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Versioned names and checksums
+        run: |
+          set -eu
+          ver=${GITHUB_REF_NAME#v}
+          mkdir -p dist
+          find artifacts -type f -name 'libbtctools-*.tar.gz' | sort | while IFS= read -r f; do
+            base=$(basename "$f")
+            cp "$f" "dist/$base"
+            cp "$f" "dist/libbtctools-${ver}-${base#libbtctools-}"
+          done
+          (cd dist && sha256sum libbtctools-*.tar.gz > libbtctools-SHA256SUMS.txt)
+          ls -l dist
+      - name: Publish GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          mapfile -t files < <(find dist -type f | sort)
+          [ "${#files[@]}" -gt 0 ]
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes "${files[@]}"
+          fi
