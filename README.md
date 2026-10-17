@@ -63,21 +63,27 @@ cd /opt/btctools/bin/btctools
 # Build on macOS
 It seems like build on Linux. Search and install dependencies with `brew` first.
 
-Tips: install `lua-5.1` instead of `luajit-2.0`. The demo will segmentation fault with `luajit-2.0` and I don't know the reason.
+Tips: use Lua 5.1 instead of LuaJIT. The demo will segmentation fault with `luajit-2.0` and I don't know the reason. Homebrew no longer ships `lua@5.1`; Dist and the commands below compile PUC-Rio Lua 5.1.5 from source.
 
-The command will be:
 ```bash
-brew install cmake boost openssl lua@5.1 cryptopp
+brew install cmake boost openssl@3 cryptopp pkg-config
 
-# static library
-cmake -DCMAKE_INSTALL_PREFIX=/opt/btctools -DBTCTOOLS__LIB_TYPE=STATIC -DBTCTOOLS__LUA_TYPE=NORMAL ..
+curl -fsSL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+echo "2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333  /tmp/lua-5.1.5.tar.gz" | shasum -a 256 -c
+tar -C /tmp -xzf /tmp/lua-5.1.5.tar.gz
+make -C /tmp/lua-5.1.5/src all MYCFLAGS="-DLUA_USE_POSIX -DLUA_USE_DLOPEN" MYLIBS=""
+make -C /tmp/lua-5.1.5 install INSTALL_TOP="$PWD/third_party/lua51"
 
-# or dynamic library
-cmake -DCMAKE_INSTALL_PREFIX=/opt/btctools -DBTCTOOLS__LIB_TYPE=SHARED -DBTCTOOLS__LUA_TYPE=NORMAL ..
+cmake -S . -B build \
+  -DCMAKE_INSTALL_PREFIX=/opt/btctools \
+  -DBTCTOOLS__LIB_TYPE=STATIC \
+  -DBTCTOOLS__LUA_TYPE=NORMAL \
+  -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
+  -DLUA_INCLUDE_DIR="$PWD/third_party/lua51/include" \
+  -DLUA_LIBRARY="$PWD/third_party/lua51/lib/liblua.a"
 
-# build & install
-make
-make install
+cmake --build build
+cmake --install build
 ```
 
 # Build on Windows

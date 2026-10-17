@@ -246,4 +246,7 @@ ModelManifest.xml
 *.lnk
 
 # build directories
-/build*/
+/build*
+/stage/
+/dist/
+/third_party//
