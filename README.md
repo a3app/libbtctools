@@ -3,6 +3,8 @@ A core library of BTCTools
 
 `libbtctools` is a library of `BTCTools`, it provides the basic ability of scanning, configuration and rebooting some miners.
 
+This repository is a maintained fork of [btccom/libbtctools](https://github.com/btccom/libbtctools). From the [fork network](https://github.com/btccom/libbtctools/network) it includes ePIC UMC scan / config / reboot (`feat/epic-umc-support` from [taserz/libbtctools](https://github.com/taserz/libbtctools), upstream PR [#12](https://github.com/btccom/libbtctools/pull/12)). WhatsMiner, Avalon, Braiins OS and AnthillOS scripts are already in the btccom baseline.
+
 It can build on Windows, Linux and macOS, as dynamic or static library.
 
 # Dependency
@@ -35,7 +37,7 @@ apt update
 apt install libssl-dev libluajit-5.1-dev libcrypto++-dev
 
 # clone and build
-git clone https://github.com/btccom/libbtctools.git
+git clone https://github.com/a3app/libbtctools.git
 cd libbtctools
 mkdir build
 cd build
