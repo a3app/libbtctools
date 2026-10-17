@@ -4,11 +4,10 @@
 #include <functional>
 #include <fstream>
 
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
-#include <boost/asio/steady_timer.hpp>
 
+#include "asio_compat.h"
 #include "common.h"
 
 namespace btctools
@@ -18,7 +17,7 @@ namespace btctools
 		class Session : public std::enable_shared_from_this<Session>
 		{
 		public:
-			Session(boost::asio::io_service &io_service, ResponseYield &responseYield);
+			Session(IoService &io_service, ResponseYield &responseYield);
 			~Session();
 			void run(Request *request);
 			
@@ -63,10 +62,10 @@ namespace btctools
 			Response *response_;
 
 			char *buffer_;
-			boost::asio::deadline_timer *session_timer_;
-			boost::asio::deadline_timer *delay_timer_;
+			SteadyTimer *session_timer_;
+			SteadyTimer *delay_timer_;
 
-			boost::asio::io_service &io_service_;
+			IoService &io_service_;
 			ResponseYield &responseYield_;
 		};
 

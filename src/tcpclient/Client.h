@@ -1,8 +1,7 @@
 #ifndef BTCTOOLS_TCPCLIENT_CLIENT
 #define BTCTOOLS_TCPCLIENT_CLIENT
 
-#include <boost/asio/io_service.hpp>
-
+#include "asio_compat.h"
 #include "common.h"
 
 namespace btctools
@@ -27,7 +26,7 @@ namespace btctools
 			void resumeSession(std::shared_ptr<Session> session);
             
         private:
-            boost::asio::io_service io_service_;
+            IoService io_service_;
 			ResponseYield *yield_;
         };
 

@@ -249,4 +249,4 @@ ModelManifest.xml
 /build*
 /stage/
 /dist/
-/third_party//
+/third_party/

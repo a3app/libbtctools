@@ -1,4 +1,5 @@
-#include <boost/swap.hpp>
+#include <utility>
+
 #include <boost/coroutine2/all.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/regex.hpp>
@@ -26,7 +27,7 @@ namespace btctools
 
 			if (ipLongBegin_ > ipLongEnd_)
 			{
-				boost::swap(ipLongBegin_, ipLongEnd_);
+				std::swap(ipLongBegin_, ipLongEnd_);
 			}
 
 			// the loop at below will cannot end if ipLongEnd_ is "255.255.255.255"

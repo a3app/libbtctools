@@ -1,14 +1,14 @@
 #include <fstream>
 
+#include <chrono>
+
 #include <boost/asio.hpp>
-#include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
 
 #include <boost/coroutine2/all.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include "Session.h"
@@ -26,7 +26,7 @@ namespace btctools
 		using tcpEndpoint = boost::asio::ip::tcp::resolver::iterator;
 	#endif
         
-		Session::Session(boost::asio::io_service &io_service, ResponseYield &responseYield)
+		Session::Session(IoService &io_service, ResponseYield &responseYield)
 			:socketTCP_(nullptr), socketSSL_(nullptr),
 			request_(nullptr), response_(nullptr),
 			running_(false), buffer_(nullptr),
@@ -100,7 +100,11 @@ namespace btctools
 			}
 
 			tcp::resolver resolver(io_service_);
+#if BOOST_VERSION >= 106600
+			auto endpoint_iterator = resolver.resolve(host, request->port_);
+#else
 			auto endpoint_iterator = resolver.resolve({ host, request->port_ });
+#endif
 
 			setTimeout(session_timeout);
 
@@ -168,7 +172,8 @@ namespace btctools
 			{
 				auto self(shared_from_this());
 
-				delay_timer_ = new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(delay_timeout));
+				delay_timer_ = new SteadyTimer(io_service_);
+				delay_timer_->expires_after(std::chrono::seconds(delay_timeout));
 				delay_timer_->async_wait([this, self, request, session_timeout](const boost::system::error_code &ec)
 				{
 					if (ec == boost::asio::error::operation_aborted)
@@ -191,7 +196,8 @@ namespace btctools
 			{
 				auto self(shared_from_this());
 
-				session_timer_ = new boost::asio::deadline_timer(io_service_, boost::posix_time::seconds(timeout));
+				session_timer_ = new SteadyTimer(io_service_);
+				session_timer_->expires_after(std::chrono::seconds(timeout));
 				session_timer_->async_wait([this, self](const boost::system::error_code &ec)
 				{
 					if (!running_ || ec == boost::asio::error::operation_aborted)

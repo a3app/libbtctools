@@ -111,16 +111,20 @@ namespace OOLUA
 			}
 		};
 
-		template<typename Ptr_type, template <typename> class Shared_pointer_class>
-		struct push_basic_type<Shared_pointer_class<Ptr_type>, 0, 0>
+#if OOLUA_USE_SHARED_PTR == 1
+		// Bound to OOLUA_SHARED_TYPE, not a generic unary class template: Clang
+		// otherwise matches std::basic_string (defaulted extra parameters).
+		template<typename Ptr_type>
+		struct push_basic_type<OOLUA_SHARED_TYPE<Ptr_type>, 0, 0>
 		{
-			static bool push(lua_State* const vm, Shared_pointer_class<Ptr_type> const& value)
+			static bool push(lua_State* const vm, OOLUA_SHARED_TYPE<Ptr_type> const& value)
 			{
 				assert(vm && value);
 				push_shared_pointer(vm, value);
 				return true;
 			}
 		};
+#endif
 
 
 		template<typename T>
